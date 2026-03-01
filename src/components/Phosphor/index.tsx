@@ -19,6 +19,9 @@ import { setAdminUnlocked, getAdminUnlocked } from "../Link";
 
 import json from "../../data/ypsilon14.json";
 
+// Secret password to unlock admin mode — typed anywhere on the page
+const ADMIN_PASSWORD = "sonya";
+
 interface AppState {
     screens: Screen[];
     dialogs: any[];
@@ -90,6 +93,8 @@ class Phosphor extends Component<any, AppState> {
     private _containerRef: React.RefObject<HTMLElement>;
     private _lineheight: number = null;
     private _colwidth: number = null;
+    private _passwordBuffer: string = "";
+    private _passwordTimeout: any = null;
 
     constructor(props: any) {
         super(props);
@@ -110,30 +115,45 @@ class Phosphor extends Component<any, AppState> {
         this._handlePromptCommand = this._handlePromptCommand.bind(this);
         this._handleTeletypeNewLine = this._handleTeletypeNewLine.bind(this);
         this._handleLinkClick = this._handleLinkClick.bind(this);
-        this._handleAdminToggle = this._handleAdminToggle.bind(this);
+        this._handlePasswordKey = this._handlePasswordKey.bind(this);
         this._handleFullscreen = this._handleFullscreen.bind(this);
     }
 
     public componentDidMount(): void {
         this._parseScreens();
         this._parseDialogs();
-        document.addEventListener("keydown", this._handleAdminToggle);
+        document.addEventListener("keydown", this._handlePasswordKey);
     }
 
     public componentWillUnmount(): void {
-        document.removeEventListener("keydown", this._handleAdminToggle);
+        document.removeEventListener("keydown", this._handlePasswordKey);
+        if (this._passwordTimeout) clearTimeout(this._passwordTimeout);
     }
 
-    // Alt+A toggles admin unlock mode
-    private _handleAdminToggle(e: KeyboardEvent): void {
-        if (e.altKey && e.key.toLowerCase() === "a") {
+    // Listen for password typed anywhere — buffers keypresses, resets after 2s inactivity
+    private _handlePasswordKey(e: KeyboardEvent): void {
+        if (e.altKey || e.ctrlKey || e.metaKey) return;
+        if (e.key.length !== 1) return;
+
+        this._passwordBuffer += e.key.toLowerCase();
+
+        if (this._passwordBuffer.length > ADMIN_PASSWORD.length) {
+            this._passwordBuffer = this._passwordBuffer.slice(-ADMIN_PASSWORD.length);
+        }
+
+        if (this._passwordBuffer === ADMIN_PASSWORD) {
+            this._passwordBuffer = "";
             const next = !getAdminUnlocked();
             setAdminUnlocked(next);
             this.setState({ adminUnlocked: next });
         }
+
+        if (this._passwordTimeout) clearTimeout(this._passwordTimeout);
+        this._passwordTimeout = setTimeout(() => {
+            this._passwordBuffer = "";
+        }, 2000);
     }
 
-    // Fullscreen via JS API (works in Firefox, Chrome, Safari)
     private _handleFullscreen(): void {
         const el = document.documentElement;
         if (!document.fullscreenElement) {
@@ -144,31 +164,21 @@ class Phosphor extends Component<any, AppState> {
     }
 
     public render(): ReactElement {
-        const { activeScreenId, activeDialogId, renderScanlines, adminUnlocked } = this.state;
+        const { activeScreenId, activeDialogId, renderScanlines } = this.state;
 
         return (
             <div className="phosphor">
-                {/* Admin unlock indicator + fullscreen button */}
+                {/* Subtle fullscreen button only — no visible admin indicator */}
                 <div style={{
                     position: "fixed", top: "8px", right: "8px",
-                    display: "flex", gap: "8px", zIndex: 1000,
-                    fontFamily: "monospace", fontSize: "0.65em",
-                    opacity: 0.5,
+                    zIndex: 1000, fontFamily: "monospace", fontSize: "0.65em",
+                    opacity: 0.3,
                 }}>
                     <span
                         onClick={this._handleFullscreen}
                         style={{ cursor: "pointer", color: "#33ff33" }}
                         title="Toggle fullscreen"
                     >[F]</span>
-                    <span
-                        onClick={() => {
-                            const next = !getAdminUnlocked();
-                            setAdminUnlocked(next);
-                            this.setState({ adminUnlocked: next });
-                        }}
-                        style={{ cursor: "pointer", color: adminUnlocked ? "#ff3333" : "#33ff33" }}
-                        title="Toggle admin unlock"
-                    >{adminUnlocked ? "[ADMIN: ON]" : "[ADMIN: OFF]"}</span>
                 </div>
 
                 <section className={"__main__"} ref={this._containerRef}>
