@@ -123,6 +123,13 @@ class Phosphor extends Component<any, AppState> {
         this._parseScreens();
         this._parseDialogs();
         document.addEventListener("keydown", this._handlePasswordKey);
+
+        // Check for ?admin=1 in the URL to unlock admin mode on load
+        const params = new URLSearchParams(window.location.search);
+        if (params.get("admin") === "1") {
+            setAdminUnlocked(true);
+            this.setState({ adminUnlocked: true });
+        }
     }
 
     public componentWillUnmount(): void {
