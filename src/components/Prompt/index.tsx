@@ -63,11 +63,19 @@ const Prompt: SFC<PromptProps> = (props) => {
 
             default:
                 // support alphanumeric, space, and limited puntuation only
-                const re = /[a-z0-9,.<>/?[\]{}'";:*&^%$#@!~]/
+                const re = /[a-z0-9,.<>/?[\]{}'"";:*&^%$#@!~]/
                 if (key.length === 1 && key.match(re)) {
                     setValue(value + key);
                 }
                 break;
+        }
+    };
+
+    // Prevent arrow keys from scrolling the page on iPad/iPhone
+    const preventArrowScroll = (e: KeyboardEvent) => {
+        const arrowKeys = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
+        if (arrowKeys.includes(e.key)) {
+            e.preventDefault();
         }
     };
 
@@ -76,9 +84,13 @@ const Prompt: SFC<PromptProps> = (props) => {
         // mount
         onRendered && onRendered();
         document.addEventListener("keydown", handleKeyDown);
+        document.addEventListener("keydown", preventArrowScroll, { capture: true });
 
         // unmount
-        return () => document.removeEventListener("keydown", handleKeyDown);
+        return () => {
+            document.removeEventListener("keydown", handleKeyDown);
+            document.removeEventListener("keydown", preventArrowScroll, { capture: true } as any);
+        };
     });
 
     return (
