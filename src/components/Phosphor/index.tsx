@@ -19,8 +19,10 @@ import { setAdminUnlocked, getAdminUnlocked } from "../Link";
 
 import json from "../../data/ypsilon14.json";
 
-// Secret password to unlock admin mode — typed anywhere on the page
+// Secret password to unlock admin mode — typed anywhere on the page (Mac keyboard)
 const ADMIN_PASSWORD = "sonya";
+// Admin server poll interval in ms
+const POLL_INTERVAL = 2000;
 
 interface AppState {
     screens: Screen[];
@@ -95,6 +97,7 @@ class Phosphor extends Component<any, AppState> {
     private _colwidth: number = null;
     private _passwordBuffer: string = "";
     private _passwordTimeout: any = null;
+    private _pollInterval: any = null;
 
     constructor(props: any) {
         super(props);
@@ -117,6 +120,7 @@ class Phosphor extends Component<any, AppState> {
         this._handleLinkClick = this._handleLinkClick.bind(this);
         this._handlePasswordKey = this._handlePasswordKey.bind(this);
         this._handleFullscreen = this._handleFullscreen.bind(this);
+        this._pollAdminStatus = this._pollAdminStatus.bind(this);
     }
 
     public componentDidMount(): void {
@@ -124,17 +128,31 @@ class Phosphor extends Component<any, AppState> {
         this._parseDialogs();
         document.addEventListener("keydown", this._handlePasswordKey);
 
-        // Check for ?admin=1 in the URL to unlock admin mode on load
-        const params = new URLSearchParams(window.location.search);
-        if (params.get("admin") === "1") {
-            setAdminUnlocked(true);
-            this.setState({ adminUnlocked: true });
-        }
+        // Start polling the admin server every 2 seconds
+        this._pollAdminStatus();
+        this._pollInterval = setInterval(this._pollAdminStatus, POLL_INTERVAL);
     }
 
     public componentWillUnmount(): void {
         document.removeEventListener("keydown", this._handlePasswordKey);
         if (this._passwordTimeout) clearTimeout(this._passwordTimeout);
+        if (this._pollInterval) clearInterval(this._pollInterval);
+    }
+
+    // Poll the admin server for current admin state
+    private _pollAdminStatus(): void {
+        fetch('http://localhost:3001/admin/status')
+            .then(res => res.json())
+            .then(data => {
+                const serverAdmin = !!data.admin;
+                if (serverAdmin !== getAdminUnlocked()) {
+                    setAdminUnlocked(serverAdmin);
+                    this.setState({ adminUnlocked: serverAdmin });
+                }
+            })
+            .catch(() => {
+                // Server not running — silently ignore, fall back to keyboard password
+            });
     }
 
     // Listen for password typed anywhere — buffers keypresses, resets after 2s inactivity
