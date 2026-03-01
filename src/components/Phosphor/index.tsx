@@ -19,7 +19,7 @@ import Scanlines from "../Scanlines";
 
 // for different content, edit sample.json, or,
 // preferrably, create a new JSON and load it here
-import json from "../../data/sample.json";
+import json from "../../data/ypsilon14.json";
 
 interface AppState {
     screens: Screen[];
@@ -332,14 +332,9 @@ class Phosphor extends Component<any, AppState> {
     }
 
     private _generateScreenData(element: any): ScreenData {
-        // TODO: build the data object based on the element type
-        // e.g. typeof element === "string" --> create a new ScreenData Text object
         const id = nanoid();
 
-        // if an element has "load" property, its requires more work
-        // to prepare so it's can't yet be considered "ready".
         const onLoad = element.onLoad || null;
-        // if an element requires more loading, we'll shove its id in the queue
         if (onLoad) {
             const loadingQueue = [...this.state.loadingQueue];
             loadingQueue.push(element.id);
@@ -349,7 +344,6 @@ class Phosphor extends Component<any, AppState> {
         }
         const state = onLoad ? ScreenDataState.Unloaded : ScreenDataState.Ready;
 
-        // text-only elements can be added as strings in the JSON data; they don't need any object wrappers
         if (typeof element === "string") {
             return {
                 id,
@@ -360,7 +354,6 @@ class Phosphor extends Component<any, AppState> {
             }
         }
 
-        // everything else requires a wrapper containing a "type" attribute, so we'll need to parse those here
         if (!element.type) {
             return;
         }
@@ -424,24 +417,16 @@ class Phosphor extends Component<any, AppState> {
     }
 
     private _parseScreenContentElement(element: any): any {
-        // if the element is a string, we'll want to
-        // split it into chunks based on the new line character
         if (typeof element === "string") {
             return element.split("\n");
         }
-
-        // otherwise, just return the element
         return element;
     }
 
-    // based on the current active ScreenData, render the corresponding active element
     private _renderActiveElement(element: any, key: number): ReactElement {
         const type = element.type;
 
-        // if the element is text-based, like text or Link, render instead a
-        // teletype component
-        if (type === ScreenDataType.Text || type === ScreenDataType.Link || type === ScreenDataType.Prompt
-        ) {
+        if (type === ScreenDataType.Text || type === ScreenDataType.Link || type === ScreenDataType.Prompt) {
             const text = type === ScreenDataType.Prompt ? element.prompt : element.text;
             const handleRendered = () => this._activateNextScreenData();
             return (
@@ -456,7 +441,6 @@ class Phosphor extends Component<any, AppState> {
             );
         }
 
-        // the toggle gets its text from the states array
         if (type === ScreenDataType.Toggle) {
             const text = element.states.find((item: any) => item.active === true).text;
             const handleRendered = () => this._activateNextScreenData();
@@ -485,12 +469,10 @@ class Phosphor extends Component<any, AppState> {
             );
         }
 
-        // otherwise, just activate the next element
         this._activateNextScreenData();
         return null;
     }
 
-    // renders the final, interactive element to the screen
     private _renderStaticElement(element: any, key: number): ReactElement {
         const className = element.className || "";
         const handleRendered = () => {
@@ -498,8 +480,6 @@ class Phosphor extends Component<any, AppState> {
         };
 
         if (element.type === ScreenDataType.Text) {
-            // \0 is the ASCII null character to ensure empty lines aren't collapsed
-            // https://en.wikipedia.org/wiki/Null_character
             const text = element.text.length ? element.text : "\0";
             return (
                 <Text
@@ -511,7 +491,6 @@ class Phosphor extends Component<any, AppState> {
             );
         }
 
-        // link
         if (element.type === ScreenDataType.Link) {
             return (
                 <Link
@@ -525,10 +504,8 @@ class Phosphor extends Component<any, AppState> {
             );
         }
 
-        // bitmap
         if (element.type === ScreenDataType.Bitmap) {
             const onComplete = () => {
-                // this._activateNextScreenData();
                 this._setElementState(element.id, ScreenDataState.Done);
             };
             return (
@@ -543,7 +520,6 @@ class Phosphor extends Component<any, AppState> {
             );
         }
 
-        // prompt
         if (element.type === ScreenDataType.Prompt) {
             return (
                 <Prompt
@@ -557,7 +533,6 @@ class Phosphor extends Component<any, AppState> {
             );
         }
 
-        // prompt
         if (element.type === ScreenDataType.Toggle) {
             return (
                 <Toggle
@@ -572,11 +547,8 @@ class Phosphor extends Component<any, AppState> {
     }
 
     private _changeScreen(targetScreen: string): void {
-        // todo: handle missing screen
-        // unload the current screen first
         this._unloadScreen();
 
-        // active the first element in the screen's content collection
         const screen = this._getScreen(targetScreen);
         const activeElement = screen.content[0];
         activeElement.state = ScreenDataState.Active;
@@ -592,15 +564,12 @@ class Phosphor extends Component<any, AppState> {
         const screen = this._getScreen(this.state.activeScreenId);
         const content = screen.content.find(element => element.id === id);
 
-        // only change the state if we need to
         if (content && (content.state !== state)) {
             content.state = state;
         }
-;   }
+    }
 
     private _unloadScreen(): void {
-        // go through the current screen elements, setting
-        // their states to ScreenDataState.Ready
         const screen = this._getScreen(this.state.activeScreenId);
         screen.content.forEach(element => {
             element.state = ScreenDataState.Unloaded;
@@ -612,34 +581,26 @@ class Phosphor extends Component<any, AppState> {
         return screen.content.find(element => element.id === id);
     }
 
-    // find the currently active element and, if possible, activate it
     private _activateNextScreenData(): void {
         const screen = this._getScreen(this.state.activeScreenId);
         const activeIndex = screen.content.findIndex(element => element.state === ScreenDataState.Active);
 
-        // nothing is active
         if (activeIndex === -1) {
             return;
         }
 
-        // we're done with this element now
         screen.content[activeIndex].state = ScreenDataState.Done;
 
-        // we're at the end of the array so there is no next
         if (activeIndex === screen.content.length - 1) {
-            // todo: indicate everything's done
             this.setState({
                 activeElementId: null,
                 status: AppStatus.Done,
             });
-
             return;
         }
 
-        // otherwise, activate the next one
         screen.content[activeIndex + 1].state = ScreenDataState.Active;
 
-        // todo: indicate everything's done
         this.setState({
             activeElementId: screen.content[activeIndex + 1].id,
         });
@@ -649,19 +610,15 @@ class Phosphor extends Component<any, AppState> {
         const screen = this._getScreen(this.state.activeScreenId);
         const activeIndex = screen.content.findIndex(element => element.state === ScreenDataState.Active);
 
-        // is something active?
         if (activeIndex > -1) {
             return screen.content[activeIndex];
         }
 
-        // otherwise set & return the first element
         const firstData = screen.content[0];
 
-        // unless that element is already done or not yet loaded
         if (firstData.state === ScreenDataState.Done || firstData.state === ScreenDataState.Unloaded) {
             return null;
         }
-
 
         firstData.state = ScreenDataState.Active;
         return firstData;
@@ -673,22 +630,18 @@ class Phosphor extends Component<any, AppState> {
     }
 
     private _toggleDialog(dialogId?: string): void {
-        // TODO: check if targetDialog is a valid dialog
         this.setState({
             activeDialogId: dialogId || null,
         });
     }
 
     private _handlePromptCommand(command: string, args?: any) {
-        // handle the various commands
         if (!args || !args.type) {
-            // display an error message
             return;
         }
 
         switch (args.type) {
             case "link":
-                // fire the change screen event
                 args.target && this._changeScreen(args.target);
                 break;
 
@@ -701,7 +654,6 @@ class Phosphor extends Component<any, AppState> {
                 break;
 
             default:
-                // throw an error message
                 break;
         }
     }
@@ -729,28 +681,17 @@ class Phosphor extends Component<any, AppState> {
     }
 
     private _handleTeletypeNewLine(): void {
-        // TODO: handle lineheight/scrolling
-        // const ref = this._containerRef;
         void 0;
-        // console.log("scrolling!", ref);
-        // const lineheight = this.props.measurements.lineHeight;
-        // if (ref) {
-        //     ref.current.scrollTop += lineheight;
-        // }
     }
 
     private _handleLinkClick(target: string | any[], shiftKey: boolean): void {
-        // if it's a string, it's a screen
         if (typeof target === "string") {
             this._changeScreen(target);
             return;
         }
 
-        // otherwise, it's a LinkTarget array
         const linkTarget = (target as any[]).find(element => element.shiftKey === shiftKey);
         if (linkTarget) {
-            // perform the appropriate action based on type
-            // TODO: type-check the object
             if (linkTarget.type === "dialog") {
                 this._toggleDialog(linkTarget.target);
                 return;
