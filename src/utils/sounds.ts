@@ -1,35 +1,69 @@
-// Sound utilities using MP3 samples from public/sounds/
+// Sound utilities using Web Audio API for zero-latency playback
 // Files expected: public/sounds/click.mp3, public/sounds/loading.mp3
 
-// Preload both sounds at module load time so they are ready instantly
-const clickAudio = new Audio('/sounds/click.mp3');
-clickAudio.preload = 'auto';
+let ctx: AudioContext | null = null;
+let clickBuffer: AudioBuffer | null = null;
+let loadingBuffer: AudioBuffer | null = null;
+let loadingSource: AudioBufferSourceNode | null = null;
+let loadingGain: GainNode | null = null;
 
-const loadingAudio = new Audio('/sounds/loading.mp3');
-loadingAudio.preload = 'auto';
-loadingAudio.loop = true;
+const getCtx = (): AudioContext => {
+    if (!ctx) ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    return ctx;
+};
 
-// Play click.mp3 once on link interaction
-export const playClick = (): void => {
+const fetchBuffer = async (url: string): Promise<AudioBuffer> => {
+    const response = await fetch(url);
+    const arrayBuffer = await response.arrayBuffer();
+    return getCtx().decodeAudioData(arrayBuffer);
+};
+
+// Call once after first user gesture to decode and cache both sounds
+export const initSounds = async (): Promise<void> => {
     try {
-        clickAudio.currentTime = 0;
-        clickAudio.play().catch(() => {});
+        const context = getCtx();
+        if (context.state === 'suspended') await context.resume();
+        [clickBuffer, loadingBuffer] = await Promise.all([
+            fetchBuffer('/sounds/click.mp3'),
+            fetchBuffer('/sounds/loading.mp3'),
+        ]);
     } catch (_) {}
 };
 
-// Start looping loading.mp3 during teletype animation
+// Play click instantly from decoded buffer
+export const playClick = (): void => {
+    try {
+        if (!clickBuffer) return;
+        const context = getCtx();
+        const source = context.createBufferSource();
+        source.buffer = clickBuffer;
+        source.connect(context.destination);
+        source.start(0);
+    } catch (_) {}
+};
+
+// Start looping loading sound
 export const startLoading = (): void => {
     try {
-        if (!loadingAudio.paused) return; // already playing
-        loadingAudio.currentTime = 0;
-        loadingAudio.play().catch(() => {});
+        if (!loadingBuffer || loadingSource) return;
+        const context = getCtx();
+        loadingGain = context.createGain();
+        loadingGain.connect(context.destination);
+        loadingSource = context.createBufferSource();
+        loadingSource.buffer = loadingBuffer;
+        loadingSource.loop = true;
+        loadingSource.connect(loadingGain);
+        loadingSource.start(0);
     } catch (_) {}
 };
 
 // Stop the loading sound
 export const stopLoading = (): void => {
     try {
-        loadingAudio.pause();
-        loadingAudio.currentTime = 0;
+        if (!loadingSource) return;
+        loadingSource.stop();
+        loadingSource.disconnect();
+        loadingSource = null;
+        loadingGain = null;
     } catch (_) {}
 };
