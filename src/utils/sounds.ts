@@ -7,6 +7,10 @@ let loadingBuffer: AudioBuffer | null = null;
 let loadingSource: AudioBufferSourceNode | null = null;
 let loadingGain: GainNode | null = null;
 
+// Fallback HTMLAudioElement for click before AudioBuffer is ready
+const clickFallback = new Audio('/sounds/click.mp3');
+clickFallback.preload = 'auto';
+
 const getCtx = (): AudioContext => {
     if (!ctx) ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     return ctx;
@@ -30,15 +34,19 @@ export const initSounds = async (): Promise<void> => {
     } catch (_) {}
 };
 
-// Play click instantly from decoded buffer
+// Play click — use decoded buffer if ready, fall back to HTMLAudio
 export const playClick = (): void => {
     try {
-        if (!clickBuffer) return;
-        const context = getCtx();
-        const source = context.createBufferSource();
-        source.buffer = clickBuffer;
-        source.connect(context.destination);
-        source.start(0);
+        if (clickBuffer) {
+            const context = getCtx();
+            const source = context.createBufferSource();
+            source.buffer = clickBuffer;
+            source.connect(context.destination);
+            source.start(0);
+        } else {
+            clickFallback.currentTime = 0;
+            clickFallback.play().catch(() => {});
+        }
     } catch (_) {}
 };
 
