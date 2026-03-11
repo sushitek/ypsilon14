@@ -20,7 +20,7 @@
     "typescript": "~3.7.2"
   },
   "scripts": {
-    "start": "concurrently \"node server.js\" \"react-scripts start\"",
+    "start": "concurrently \"node server.js\" \"cross-env NODE_OPTIONS=--openssl-legacy-provider react-scripts start\"",
     "server": "node server.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
