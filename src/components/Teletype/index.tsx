@@ -3,6 +3,8 @@ import React, { Component, ReactElement } from "react";
 // css
 import "./style.scss";
 
+import { playTick } from "../../utils/sounds";
+
 interface TeletypeProps {
     text: string; // text to animate
     className?: string; // css class
@@ -56,7 +58,7 @@ class Teletype extends Component<TeletypeProps, TeletypeState> {
         const { char, done, active, } = this.state;
 
         const visible = text.substr(0, char); // already rendered
-        const cursor = text.substr(char, 1) || " "; // " " ensures the curosr is briefly visible for line breaks
+        const cursor = text.substr(char, 1) || " "; // " " ensures the cursor is briefly visible for line breaks
         const hidden = text.substr(char + 1); // to be rendered
 
         if (!active || done) {
@@ -96,7 +98,6 @@ class Teletype extends Component<TeletypeProps, TeletypeState> {
             this._onComplete();
         }
 
-
         if (this.state.done) {
             return;
         }
@@ -121,15 +122,11 @@ class Teletype extends Component<TeletypeProps, TeletypeState> {
         // track the current active line
         this._getCursorPosition();
 
-        // setTimeout is preferred over requestAnimationFrame so the interval
-        // can be specified -- we can control how janky it looked; requestAnimationFrame
-        // results in animation that's much to smooth for our purposes.
         this._animateTimerId = window.setTimeout(this._updateState, this._cursorInterval);
     }
 
     private _getCursorPosition(): void {
         const { onNewLine } = this.props;
-        // get the cursorRef
         const ref = this._cursorRef;
         let y = this._cursorY;
 
@@ -137,7 +134,6 @@ class Teletype extends Component<TeletypeProps, TeletypeState> {
             const node = ref.current;
             const top = node.offsetTop;
             if (y !== top) {
-                // new line
                 this._cursorY = top;
                 onNewLine && onNewLine();
             }
@@ -152,40 +148,31 @@ class Teletype extends Component<TeletypeProps, TeletypeState> {
     }
 
     private _updateState(): void {
-        const { text, } = this.props;
-        const {
-            char,
-            active,
-            done,
-            paused,
-        } = this.state;
+        const { text } = this.props;
+        const { char, active, done, paused } = this.state;
 
-        if (done) {
-            return;
-        }
+        if (done) return;
 
-        // let nextIndex = index;
         let nextChar = char;
         let nextActive = active;
         let nextDone = done;
         let nextPaused = paused;
 
-        // if we're not active, we are now!
-        if (!nextActive) {
-            nextActive = true;
-        }
+        if (!nextActive) nextActive = true;
 
-        // if char is less that the current string, increment it
         if (char < text.length) {
             nextChar = char + 1;
+            // Play tick for visible characters only (skip spaces and newlines)
+            const currentChar = text[char];
+            if (currentChar && currentChar !== ' ' && currentChar !== '\n') {
+                playTick();
+            }
         } else {
             nextActive = false;
             nextDone = true;
         }
 
-        // update state
         this.setState({
-            // index: nextIndex,
             char: nextChar,
             active: nextActive,
             done: nextDone,
@@ -194,7 +181,7 @@ class Teletype extends Component<TeletypeProps, TeletypeState> {
     }
 
     private _onComplete(): void {
-        const { onComplete, } = this.props;
+        const { onComplete } = this.props;
         onComplete && onComplete();
     }
 }

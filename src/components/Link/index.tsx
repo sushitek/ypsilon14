@@ -2,6 +2,8 @@ import React, { FC, useEffect } from "react";
 
 import "./style.scss";
 
+import { playBeep } from "../../utils/sounds";
+
 interface LinkTarget {
     target: string;
     type: any;
@@ -16,7 +18,7 @@ export interface LinkProps {
     onRendered?: () => void;
 }
 
-// Global admin unlock state — toggled via Alt+A
+// Global admin unlock state
 let adminUnlocked = false;
 export const setAdminUnlocked = (val: boolean) => { adminUnlocked = val; };
 export const getAdminUnlocked = () => adminUnlocked;
@@ -31,14 +33,14 @@ const Link: FC<LinkProps> = (props) => {
     };
     const handleTouchEnd = (e: React.TouchEvent<HTMLSpanElement>) => {
         e.preventDefault();
-        // 2-finger tap OR admin unlocked both trigger shift behaviour
+        playBeep();
         onClick && onClick(target, touches > 1 || adminUnlocked);
         touches = 0;
     };
 
     const handleClick = (e: React.MouseEvent<HTMLSpanElement>) => {
         e.preventDefault();
-        // shift key OR admin unlocked both trigger admin behaviour
+        playBeep();
         onClick && onClick(target, e.shiftKey || adminUnlocked);
     };
 
