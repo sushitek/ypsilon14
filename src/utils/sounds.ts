@@ -1,63 +1,32 @@
-// Web Audio API sound utilities
-// All sounds are generated programmatically — no audio files needed.
+// Sound utilities using MP3 samples from public/sounds/
+// Files expected: public/sounds/click.mp3, public/sounds/loading.mp3
 
-let audioCtx: AudioContext | null = null;
+let loadingAudio: HTMLAudioElement | null = null;
 
-// AudioContext must be created/resumed after a user gesture
-const getContext = (): AudioContext => {
-    if (!audioCtx) {
-        audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (audioCtx.state === 'suspended') {
-        audioCtx.resume();
-    }
-    return audioCtx;
+// Play click.mp3 once on link interaction
+export const playClick = (): void => {
+    try {
+        const audio = new Audio('/sounds/click.mp3');
+        audio.play().catch(() => {});
+    } catch (_) {}
 };
 
-// Short mechanical tick for teletype character output
-export const playTick = (): void => {
+// Start looping loading.mp3 during teletype animation
+export const startLoading = (): void => {
     try {
-        const ctx = getContext();
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-
-        oscillator.type = 'square';
-        oscillator.frequency.setValueAtTime(1200, ctx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(600, ctx.currentTime + 0.015);
-
-        gain.gain.setValueAtTime(0.04, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.015);
-
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.015);
-    } catch (_) {
-        // Silently ignore if audio is unavailable
-    }
+        if (loadingAudio) return; // already playing
+        loadingAudio = new Audio('/sounds/loading.mp3');
+        loadingAudio.loop = true;
+        loadingAudio.play().catch(() => {});
+    } catch (_) {}
 };
 
-// Short retro beep for UI interactions (link clicks)
-export const playBeep = (): void => {
+// Stop the loading sound
+export const stopLoading = (): void => {
     try {
-        const ctx = getContext();
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
-
-        oscillator.connect(gain);
-        gain.connect(ctx.destination);
-
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-        oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.08);
-
-        gain.gain.setValueAtTime(0.15, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.08);
-
-        oscillator.start(ctx.currentTime);
-        oscillator.stop(ctx.currentTime + 0.08);
-    } catch (_) {
-        // Silently ignore if audio is unavailable
-    }
+        if (!loadingAudio) return;
+        loadingAudio.pause();
+        loadingAudio.currentTime = 0;
+        loadingAudio = null;
+    } catch (_) {}
 };

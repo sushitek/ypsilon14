@@ -16,12 +16,11 @@ import Toggle from "../Toggle";
 import Modal from "../Modal";
 import Scanlines from "../Scanlines";
 import { setAdminUnlocked, getAdminUnlocked } from "../Link";
+import { startLoading, stopLoading } from "../../utils/sounds";
 
 import json from "../../data/ypsilon14.json";
 
-// Secret password to unlock admin mode — typed anywhere on the page (Mac keyboard)
 const ADMIN_PASSWORD = "sonya";
-// Admin server poll interval in ms
 const POLL_INTERVAL = 2000;
 
 interface AppState {
@@ -127,8 +126,6 @@ class Phosphor extends Component<any, AppState> {
         this._parseScreens();
         this._parseDialogs();
         document.addEventListener("keydown", this._handlePasswordKey);
-
-        // Start polling the admin server every 2 seconds
         this._pollAdminStatus();
         this._pollInterval = setInterval(this._pollAdminStatus, POLL_INTERVAL);
     }
@@ -137,9 +134,21 @@ class Phosphor extends Component<any, AppState> {
         document.removeEventListener("keydown", this._handlePasswordKey);
         if (this._passwordTimeout) clearTimeout(this._passwordTimeout);
         if (this._pollInterval) clearInterval(this._pollInterval);
+        stopLoading();
     }
 
-    // Poll the admin server using the same host the page was loaded from
+    public componentDidUpdate(_prevProps: any, prevState: AppState): void {
+        const { status } = this.state;
+        // Start loading sound when screen becomes active
+        if (prevState.status !== AppStatus.Active && status === AppStatus.Active) {
+            startLoading();
+        }
+        // Stop loading sound when screen is fully done
+        if (prevState.status !== AppStatus.Done && status === AppStatus.Done) {
+            stopLoading();
+        }
+    }
+
     private _pollAdminStatus(): void {
         fetch(`http://${window.location.hostname}:3001/admin/status`)
             .then(res => res.json())
@@ -150,33 +159,25 @@ class Phosphor extends Component<any, AppState> {
                     this.setState({ adminUnlocked: serverAdmin });
                 }
             })
-            .catch(() => {
-                // Server not running — silently ignore, fall back to keyboard password
-            });
+            .catch(() => {});
     }
 
-    // Listen for password typed anywhere — buffers keypresses, resets after 2s inactivity
     private _handlePasswordKey(e: KeyboardEvent): void {
         if (e.altKey || e.ctrlKey || e.metaKey) return;
         if (e.key.length !== 1) return;
 
         this._passwordBuffer += e.key.toLowerCase();
-
         if (this._passwordBuffer.length > ADMIN_PASSWORD.length) {
             this._passwordBuffer = this._passwordBuffer.slice(-ADMIN_PASSWORD.length);
         }
-
         if (this._passwordBuffer === ADMIN_PASSWORD) {
             this._passwordBuffer = "";
             const next = !getAdminUnlocked();
             setAdminUnlocked(next);
             this.setState({ adminUnlocked: next });
         }
-
         if (this._passwordTimeout) clearTimeout(this._passwordTimeout);
-        this._passwordTimeout = setTimeout(() => {
-            this._passwordBuffer = "";
-        }, 2000);
+        this._passwordTimeout = setTimeout(() => { this._passwordBuffer = ""; }, 2000);
     }
 
     private _handleFullscreen(): void {
@@ -193,7 +194,6 @@ class Phosphor extends Component<any, AppState> {
 
         return (
             <div className="phosphor">
-                {/* Subtle fullscreen button only — no visible admin indicator */}
                 <div style={{
                     position: "fixed", top: "8px", right: "8px",
                     zIndex: 1000, fontFamily: "monospace", fontSize: "0.65em",
@@ -219,8 +219,7 @@ class Phosphor extends Component<any, AppState> {
     private _parseScreens(): void {
         const screens = json.screens.map((element) => this._buildScreen(element));
         if (!screens.length) return;
-        const activeScreen = 0;
-        this.setState({ screens }, () => this._setActiveScreen(activeScreen));
+        this.setState({ screens }, () => this._setActiveScreen(0));
     }
 
     private _parseDialogs(): void {
@@ -382,6 +381,7 @@ class Phosphor extends Component<any, AppState> {
     }
 
     private _changeScreen(targetScreen: string): void {
+        stopLoading();
         this._unloadScreen();
         const screen = this._getScreen(targetScreen);
         const activeElement = screen.content[0];

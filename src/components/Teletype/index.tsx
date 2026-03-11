@@ -3,17 +3,15 @@ import React, { Component, ReactElement } from "react";
 // css
 import "./style.scss";
 
-import { playTick } from "../../utils/sounds";
-
 interface TeletypeProps {
-    text: string; // text to animate
-    className?: string; // css class
-    autostart?: boolean; // start animating immediately? default = true
-    autocomplete?: boolean; // skip animating and instead fully render? default = false
-    speed?: number; // optional animation speed in ms; default = 5
+    text: string;
+    className?: string;
+    autostart?: boolean;
+    autocomplete?: boolean;
+    speed?: number;
 
-    onComplete: () => void; // event called on completion
-    onNewLine?: () => void; // event called when the cursor is moved to a new line
+    onComplete: () => void;
+    onNewLine?: () => void;
 }
 
 interface TeletypeState {
@@ -55,15 +53,13 @@ class Teletype extends Component<TeletypeProps, TeletypeState> {
 
     public render(): ReactElement {
         const { text, className } = this.props;
-        const { char, done, active, } = this.state;
+        const { char, done, active } = this.state;
 
-        const visible = text.substr(0, char); // already rendered
-        const cursor = text.substr(char, 1) || " "; // " " ensures the cursor is briefly visible for line breaks
-        const hidden = text.substr(char + 1); // to be rendered
+        const visible = text.substr(0, char);
+        const cursor = text.substr(char, 1) || " ";
+        const hidden = text.substr(char + 1);
 
-        if (!active || done) {
-            return null;
-        }
+        if (!active || done) return null;
 
         const css = ["__teletype__", className ? className : null].join(" ").trim();
 
@@ -78,30 +74,15 @@ class Teletype extends Component<TeletypeProps, TeletypeState> {
 
     public componentDidMount(): void {
         const { paused, done } = this.state;
-
-        // if autocomplete is on, we can skip to the end
-        if (done) {
-            this._onComplete();
-            return;
-        }
-
-        // ready to go
+        if (done) { this._onComplete(); return; }
         if (!paused) {
-            this.setState({
-                active: true,
-            }, () => this._animate());
+            this.setState({ active: true }, () => this._animate());
         }
     }
 
     public componentDidUpdate(prevProps: TeletypeProps, prevState: TeletypeState): void {
-        if (!prevState.done && this.state.done) {
-            this._onComplete();
-        }
-
-        if (this.state.done) {
-            return;
-        }
-
+        if (!prevState.done && this.state.done) this._onComplete();
+        if (this.state.done) return;
         this._animate();
     }
 
@@ -114,25 +95,17 @@ class Teletype extends Component<TeletypeProps, TeletypeState> {
 
     private _animate(): void {
         this._clearAnimateTimer();
-
-        if (this.state.paused) {
-            return;
-        }
-
-        // track the current active line
+        if (this.state.paused) return;
         this._getCursorPosition();
-
         this._animateTimerId = window.setTimeout(this._updateState, this._cursorInterval);
     }
 
     private _getCursorPosition(): void {
         const { onNewLine } = this.props;
         const ref = this._cursorRef;
-        let y = this._cursorY;
-
+        const y = this._cursorY;
         if (ref && ref.current) {
-            const node = ref.current;
-            const top = node.offsetTop;
+            const top = ref.current.offsetTop;
             if (y !== top) {
                 this._cursorY = top;
                 onNewLine && onNewLine();
@@ -150,34 +123,22 @@ class Teletype extends Component<TeletypeProps, TeletypeState> {
     private _updateState(): void {
         const { text } = this.props;
         const { char, active, done, paused } = this.state;
-
         if (done) return;
 
         let nextChar = char;
         let nextActive = active;
         let nextDone = done;
-        let nextPaused = paused;
 
         if (!nextActive) nextActive = true;
 
         if (char < text.length) {
             nextChar = char + 1;
-            // Play tick for visible characters only (skip spaces and newlines)
-            const currentChar = text[char];
-            if (currentChar && currentChar !== ' ' && currentChar !== '\n') {
-                playTick();
-            }
         } else {
             nextActive = false;
             nextDone = true;
         }
 
-        this.setState({
-            char: nextChar,
-            active: nextActive,
-            done: nextDone,
-            paused: nextPaused,
-        });
+        this.setState({ char: nextChar, active: nextActive, done: nextDone, paused });
     }
 
     private _onComplete(): void {

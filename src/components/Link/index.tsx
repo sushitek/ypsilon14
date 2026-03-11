@@ -2,7 +2,7 @@ import React, { FC, useEffect } from "react";
 
 import "./style.scss";
 
-import { playBeep } from "../../utils/sounds";
+import { playClick } from "../../utils/sounds";
 
 interface LinkTarget {
     target: string;
@@ -33,14 +33,14 @@ const Link: FC<LinkProps> = (props) => {
     };
     const handleTouchEnd = (e: React.TouchEvent<HTMLSpanElement>) => {
         e.preventDefault();
-        playBeep();
+        playClick();
         onClick && onClick(target, touches > 1 || adminUnlocked);
         touches = 0;
     };
 
     const handleClick = (e: React.MouseEvent<HTMLSpanElement>) => {
         e.preventDefault();
-        playBeep();
+        playClick();
         onClick && onClick(target, e.shiftKey || adminUnlocked);
     };
 
