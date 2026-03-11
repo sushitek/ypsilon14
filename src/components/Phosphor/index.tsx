@@ -139,9 +139,9 @@ class Phosphor extends Component<any, AppState> {
         if (this._pollInterval) clearInterval(this._pollInterval);
     }
 
-    // Poll the admin server for current admin state
+    // Poll the admin server using the same host the page was loaded from
     private _pollAdminStatus(): void {
-        fetch('http://localhost:3001/admin/status')
+        fetch(`http://${window.location.hostname}:3001/admin/status`)
             .then(res => res.json())
             .then(data => {
                 const serverAdmin = !!data.admin;
