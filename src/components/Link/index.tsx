@@ -2,7 +2,7 @@ import React, { FC, useEffect } from "react";
 
 import "./style.scss";
 
-import { playClick } from "../../utils/sounds";
+import { initSounds, playClick } from "../../utils/sounds";
 
 interface LinkTarget {
     target: string;
@@ -23,6 +23,15 @@ let adminUnlocked = false;
 export const setAdminUnlocked = (val: boolean) => { adminUnlocked = val; };
 export const getAdminUnlocked = () => adminUnlocked;
 
+// Init sounds once on first gesture
+let soundsInitialised = false;
+const ensureSounds = () => {
+    if (!soundsInitialised) {
+        soundsInitialised = true;
+        initSounds();
+    }
+};
+
 const Link: FC<LinkProps> = (props) => {
     const { text, target, className, onClick, onRendered } = props;
     const css = ["__link__", className ? className : null].join(" ").trim();
@@ -33,6 +42,7 @@ const Link: FC<LinkProps> = (props) => {
     };
     const handleTouchEnd = (e: React.TouchEvent<HTMLSpanElement>) => {
         e.preventDefault();
+        ensureSounds();
         playClick();
         onClick && onClick(target, touches > 1 || adminUnlocked);
         touches = 0;
@@ -40,6 +50,7 @@ const Link: FC<LinkProps> = (props) => {
 
     const handleClick = (e: React.MouseEvent<HTMLSpanElement>) => {
         e.preventDefault();
+        ensureSounds();
         playClick();
         onClick && onClick(target, e.shiftKey || adminUnlocked);
     };
