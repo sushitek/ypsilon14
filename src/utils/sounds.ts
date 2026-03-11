@@ -5,7 +5,7 @@ let ctx: AudioContext | null = null;
 let clickBuffer: AudioBuffer | null = null;
 let loadingBuffer: AudioBuffer | null = null;
 let loadingSource: AudioBufferSourceNode | null = null;
-let loadingGain: GainNode | null = null;
+let pendingLoadingStart: boolean = false;
 
 // Fallback HTMLAudioElement for click before AudioBuffer is ready
 const clickFallback = new Audio('/sounds/click.mp3');
@@ -16,32 +16,44 @@ const getCtx = (): AudioContext => {
     return ctx;
 };
 
-const fetchBuffer = async (url: string): Promise<AudioBuffer> => {
+const fetchAndDecode = async (url: string): Promise<AudioBuffer> => {
     const response = await fetch(url);
     const arrayBuffer = await response.arrayBuffer();
-    return getCtx().decodeAudioData(arrayBuffer);
+    // Use a temporary context just for decoding if main ctx not yet created
+    const context = getCtx();
+    return context.decodeAudioData(arrayBuffer);
 };
 
-// Call once after first user gesture to decode and cache both sounds
-export const initSounds = async (): Promise<void> => {
+// Fetch and decode both buffers immediately at module load (no gesture needed for fetch)
+(async () => {
+    try {
+        [clickBuffer, loadingBuffer] = await Promise.all([
+            fetchAndDecode('/sounds/click.mp3'),
+            fetchAndDecode('/sounds/loading.mp3'),
+        ]);
+        // If startLoading was called before buffers were ready, start now
+        if (pendingLoadingStart) {
+            pendingLoadingStart = false;
+            startLoading();
+        }
+    } catch (_) {}
+})();
+
+// Call on first user gesture to resume AudioContext (required by iOS/Safari)
+export const initSounds = (): void => {
     try {
         const context = getCtx();
-        if (context.state === 'suspended') await context.resume();
-        [clickBuffer, loadingBuffer] = await Promise.all([
-            fetchBuffer('/sounds/click.mp3'),
-            fetchBuffer('/sounds/loading.mp3'),
-        ]);
+        if (context.state === 'suspended') context.resume().catch(() => {});
     } catch (_) {}
 };
 
 // Play click — use decoded buffer if ready, fall back to HTMLAudio
 export const playClick = (): void => {
     try {
-        if (clickBuffer) {
-            const context = getCtx();
-            const source = context.createBufferSource();
+        if (clickBuffer && ctx && ctx.state === 'running') {
+            const source = ctx.createBufferSource();
             source.buffer = clickBuffer;
-            source.connect(context.destination);
+            source.connect(ctx.destination);
             source.start(0);
         } else {
             clickFallback.currentTime = 0;
@@ -53,14 +65,18 @@ export const playClick = (): void => {
 // Start looping loading sound
 export const startLoading = (): void => {
     try {
-        if (!loadingBuffer || loadingSource) return;
-        const context = getCtx();
-        loadingGain = context.createGain();
-        loadingGain.connect(context.destination);
-        loadingSource = context.createBufferSource();
+        if (loadingSource) return; // already playing
+        if (!loadingBuffer || !ctx || ctx.state !== 'running') {
+            // Buffer not ready or context not resumed yet — flag to start when ready
+            pendingLoadingStart = true;
+            return;
+        }
+        const gain = ctx.createGain();
+        gain.connect(ctx.destination);
+        loadingSource = ctx.createBufferSource();
         loadingSource.buffer = loadingBuffer;
         loadingSource.loop = true;
-        loadingSource.connect(loadingGain);
+        loadingSource.connect(gain);
         loadingSource.start(0);
     } catch (_) {}
 };
@@ -68,10 +84,10 @@ export const startLoading = (): void => {
 // Stop the loading sound
 export const stopLoading = (): void => {
     try {
+        pendingLoadingStart = false;
         if (!loadingSource) return;
         loadingSource.stop();
         loadingSource.disconnect();
         loadingSource = null;
-        loadingGain = null;
     } catch (_) {}
 };
