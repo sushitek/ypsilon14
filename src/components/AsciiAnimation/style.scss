@@ -1,0 +1,11 @@
+.__ascii-animation__ {
+    font-family: var(--font-mono, monospace) !important;
+    line-height: 1.1;
+    margin: var(--space-4, 1rem) 0;
+    opacity: 0.85;
+    letter-spacing: -0.01em;
+    white-space: pre;
+    background: none;
+    border: none;
+    padding: 0;
+}
