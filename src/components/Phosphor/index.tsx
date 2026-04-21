@@ -19,6 +19,7 @@ import { setAdminUnlocked, getAdminUnlocked } from "../Link";
 import { startLoading, stopLoading } from "../../utils/sounds";
 
 import json from "../../data/ypsilon14.json";
+import AsciiAnimation, { CASSETTE_FRAMES } from "../AsciiAnimation";
 
 const ADMIN_PASSWORD = "sonya";
 const POLL_INTERVAL = 2000;
@@ -61,6 +62,7 @@ enum ScreenDataType {
     Bitmap,
     Prompt,
     Toggle,
+    AsciiAnimation,
 }
 
 enum ScreenDataState {
@@ -328,6 +330,8 @@ class Phosphor extends Component<any, AppState> {
             case "bitmap": return { id, type: ScreenDataType.Bitmap, src: element.src, alt: element.alt, className: element.className, state, onLoad };
             case "prompt": return { id, type: ScreenDataType.Prompt, prompt: element.prompt || PROMPT_DEFAULT, className: element.className, commands: element.commands, state, onLoad };
             case "toggle": return { id, type: ScreenDataType.Toggle, states: element.states, state };
+            case "ascii-animation":
+    return { id, type: ScreenDataType.AsciiAnimation, frames: element.frames || CASSETTE_FRAMES, fps: element.fps || 8, loop: element.loop !== false, className: element.className, state, onLoad };
             default: return;
         }
     }
@@ -353,10 +357,14 @@ class Phosphor extends Component<any, AppState> {
             const handleRendered = () => this._activateNextScreenData();
             return <Bitmap key={key} className={element.className} src={element.src} alt={element.alt} onComplete={handleRendered} />;
         }
+        if (type === ScreenDataType.AsciiAnimation) {
+            const handleComplete = () => this._activateNextScreenData();
+            return <AsciiAnimation key={key} frames={element.frames} fps={element.fps} loop={element.loop} className={element.className} onComplete={handleComplete} />;
+}
         this._activateNextScreenData();
         return null;
     }
-
+    
     private _renderStaticElement(element: any, key: number): ReactElement {
         const className = element.className || "";
         const handleRendered = () => this._setElementState(element.id, ScreenDataState.Done);
@@ -376,6 +384,9 @@ class Phosphor extends Component<any, AppState> {
         }
         if (element.type === ScreenDataType.Toggle) {
             return <Toggle key={key} className={className} states={element.states} />;
+        }
+        if (element.type === ScreenDataType.AsciiAnimation) {
+            return <AsciiAnimation key={key} frames={element.frames} fps={element.fps} loop={element.loop} className={element.className} />;
         }
         return null;
     }
